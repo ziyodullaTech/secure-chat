@@ -128,14 +128,25 @@ async function encryptMessage(text) {
 }
 
 async function decryptMessage(payload) {
-    const decrypted = await crypto.subtle.decrypt(
-        { name: "AES-GCM", iv: new Uint8Array(payload.iv) },
-        sharedAESKey,
-        new Uint8Array(payload.data)
-    );
+    if (!sharedAESKey) {
+        console.warn("🔐 AES key not ready yet. Message skipped.");
+        return null;
+    }
 
-    return new TextDecoder().decode(decrypted);
+    try {
+        const decrypted = await crypto.subtle.decrypt(
+            { name: "AES-GCM", iv: new Uint8Array(payload.iv) },
+            sharedAESKey,
+            new Uint8Array(payload.data)
+        );
+
+        return new TextDecoder().decode(decrypted);
+    } catch (e) {
+        console.warn("❌ Decrypt failed (probably old session message)");
+        return null;
+    }
 }
+
 
 // ===============================
 // UI
@@ -154,7 +165,10 @@ document.getElementById("sendBtn").onclick = async () => {
 
 socket.on("message", async (payload) => {
     const msg = await decryptMessage(payload);
+    if (!msg) return; // 🔥 MUHIM
+
     const li = document.createElement("li");
     li.textContent = msg;
     document.getElementById("chat").appendChild(li);
 });
+
