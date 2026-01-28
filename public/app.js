@@ -5,6 +5,8 @@ const socket = io();
 let myKeyPair = null;
 let sharedAESKey = null;
 let theirPublicKey = null;
+let sessionId = null;
+
 
 // ===============================
 // RSA KEYPAIR
@@ -34,12 +36,21 @@ async function exportMyPublicKey() {
 // SOCKET EVENTS
 // ===============================
 socket.on("connect", async () => {
-    console.log("Client ulandi:", socket.id);
+    console.log("🔁 New session started");
+    sessionId = crypto.randomUUID();
 
+    // 🔥 PFS: eski kalitlarni o‘chiramiz
+    sharedAESKey = null;
+    theirPublicKey = null;
+    myKeyPair = null;
+
+    // 🔐 Yangi RSA keypair
     await generateRSAKeyPair();
+
     const myPublicKey = await exportMyPublicKey();
     socket.emit("public-key", myPublicKey);
 });
+
 
 // public key qabul qilish
 socket.on("public-key", async (keyArray) => {
@@ -72,15 +83,21 @@ async function createAndSendAESKey() {
         rawAES
     );
 
-    socket.emit("aes-key", Array.from(new Uint8Array(encryptedAES)));
+    socket.emit("aes-key", {
+        sessionId,
+        key: Array.from(new Uint8Array(encryptedAES))
+    });
+
 }
 
 // AES key qabul qilish
-socket.on("aes-key", async (encryptedKeyArray) => {
+socket.on("aes-key", async ({ sessionId: incomingId, key }) => {
+    if (incomingId !== sessionId) return;
+
     const rawAES = await crypto.subtle.decrypt(
         { name: "RSA-OAEP" },
         myKeyPair.privateKey,
-        new Uint8Array(encryptedKeyArray)
+        new Uint8Array(key)
     );
 
     sharedAESKey = await crypto.subtle.importKey(
@@ -91,8 +108,9 @@ socket.on("aes-key", async (encryptedKeyArray) => {
         ["encrypt", "decrypt"]
     );
 
-    console.log("🔐 AES key tayyor");
+    console.log("🔐 New session AES ready");
 });
+
 
 // ===============================
 // MESSAGE ENCRYPT / DECRYPT
