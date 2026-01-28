@@ -8,30 +8,39 @@ const io = new Server(server);
 
 app.use(express.static("public"));
 
-let clients = []; // 🔥 GLOBAL bo‘lishi shart
+let initiatorId = null;
 
 io.on("connection", (socket) => {
-    clients.push(socket.id);
+    console.log("User connected:", socket.id);
 
-    // role berish
-    socket.emit("role", {
-        initiator: clients.length === 1
-    });
+    // 🔥 Role aniqlash
+    if (!initiatorId) {
+        initiatorId = socket.id;
+        socket.emit("role", { initiator: true });
+    } else {
+        socket.emit("role", { initiator: false });
+    }
 
-    socket.on("public-key", (key) => {
-        socket.broadcast.emit("public-key", key);
-    });
-
-    socket.on("aes-key", (key) => {
-        socket.broadcast.emit("aes-key", key);
-    });
-
-    socket.on("message", (msg) => {
-        socket.broadcast.emit("message", msg);
-    });
+    // ===== EVENTS =====
+    socket.on("public-key", (key) => socket.broadcast.emit("public-key", key));
+    socket.on("aes-key", (key) => socket.broadcast.emit("aes-key", key));
+    socket.on("message", (msg) => socket.broadcast.emit("message", msg));
 
     socket.on("disconnect", () => {
-        clients = clients.filter(id => id !== socket.id);
+        console.log("User disconnected:", socket.id);
+
+        // 🔥 Agar INITIATOR chiqib ketsa
+        if (socket.id === initiatorId) {
+            initiatorId = null;
+
+            // 🔁 Qolganlardan bittasini INITIATOR qilamiz
+            const sockets = Array.from(io.sockets.sockets.keys());
+            if (sockets.length > 0) {
+                initiatorId = sockets[0];
+                io.to(initiatorId).emit("role", { initiator: true });
+                console.log("New INITIATOR:", initiatorId);
+            }
+        }
     });
 });
 
