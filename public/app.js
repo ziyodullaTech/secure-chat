@@ -1,13 +1,12 @@
 // 🔌 Socket — DOIM ENG BIRINCHI
 const socket = io();
-///////
+
 let isInitiator = false;
+
 // 🔐 Global crypto holatlar
 let myKeyPair = null;
-let sharedAESKey = null;
 let theirPublicKey = null;
-let sessionId = null;
-
+let sharedAESKey = null;
 
 // ===============================
 // RSA KEYPAIR
@@ -16,7 +15,7 @@ async function generateRSAKeyPair() {
     myKeyPair = await crypto.subtle.generateKey(
         {
             name: "RSA-OAEP",
-            modulusLength: 4096,
+            modulusLength: 2048, // 4096 shart emas, tezroq
             publicExponent: new Uint8Array([1, 0, 1]),
             hash: "SHA-256",
         },
@@ -26,10 +25,7 @@ async function generateRSAKeyPair() {
 }
 
 async function exportMyPublicKey() {
-    const exported = await crypto.subtle.exportKey(
-        "spki",
-        myKeyPair.publicKey
-    );
+    const exported = await crypto.subtle.exportKey("spki", myKeyPair.publicKey);
     return Array.from(new Uint8Array(exported));
 }
 
@@ -38,26 +34,22 @@ async function exportMyPublicKey() {
 // ===============================
 socket.on("connect", async () => {
     console.log("🔁 New session started");
-    sessionId = crypto.randomUUID();
 
-    // 🔥 PFS: eski kalitlarni o‘chiramiz
+    // 🔥 PFS: eski holatni tozalaymiz
     sharedAESKey = null;
     theirPublicKey = null;
     myKeyPair = null;
 
-    // 🔐 Yangi RSA keypair
     await generateRSAKeyPair();
-
     const myPublicKey = await exportMyPublicKey();
     socket.emit("public-key", myPublicKey);
 });
 
-///// rele 
+// serverdan role keladi
 socket.on("role", ({ initiator }) => {
     isInitiator = initiator;
     console.log("Role:", initiator ? "INITIATOR" : "RECEIVER");
 });
-
 
 // public key qabul qilish
 socket.on("public-key", async (keyArray) => {
@@ -69,13 +61,15 @@ socket.on("public-key", async (keyArray) => {
         ["encrypt"]
     );
 
+    // 🔥 FAQAT INITIATOR AES yaratadi
     if (isInitiator && !sharedAESKey) {
         await createAndSendAESKey();
     }
-
 });
 
-// AES key yuborish
+// ===============================
+// AES KEY EXCHANGE
+// ===============================
 async function createAndSendAESKey() {
     sharedAESKey = await crypto.subtle.generateKey(
         { name: "AES-GCM", length: 256 },
@@ -91,21 +85,17 @@ async function createAndSendAESKey() {
         rawAES
     );
 
-    socket.emit("aes-key", {
-        sessionId,
-        key: Array.from(new Uint8Array(encryptedAES))
-    });
-
+    socket.emit("aes-key", Array.from(new Uint8Array(encryptedAES)));
+    console.log("🔐 AES key sent");
 }
 
-// AES key qabul qilish
-socket.on("aes-key", async ({ sessionId: incomingId, key }) => {
-    if (incomingId !== sessionId) return;
+socket.on("aes-key", async (encryptedKeyArray) => {
+    console.log("🔐 AES key received");
 
     const rawAES = await crypto.subtle.decrypt(
         { name: "RSA-OAEP" },
         myKeyPair.privateKey,
-        new Uint8Array(key)
+        new Uint8Array(encryptedKeyArray)
     );
 
     sharedAESKey = await crypto.subtle.importKey(
@@ -116,9 +106,8 @@ socket.on("aes-key", async ({ sessionId: incomingId, key }) => {
         ["encrypt", "decrypt"]
     );
 
-    console.log("🔐 New session AES ready");
+    console.log("🔐 AES key ready");
 });
-
 
 // ===============================
 // MESSAGE ENCRYPT / DECRYPT
@@ -132,14 +121,14 @@ async function encryptMessage(text) {
         new TextEncoder().encode(text)
     );
 
-    return { iv: Array.from(iv), data: Array.from(new Uint8Array(encrypted)) };
+    return {
+        iv: Array.from(iv),
+        data: Array.from(new Uint8Array(encrypted)),
+    };
 }
 
 async function decryptMessage(payload) {
-    if (!sharedAESKey) {
-        console.warn("🔐 AES key not ready yet. Message skipped.");
-        return null;
-    }
+    if (!sharedAESKey) return null;
 
     try {
         const decrypted = await crypto.subtle.decrypt(
@@ -149,19 +138,17 @@ async function decryptMessage(payload) {
         );
 
         return new TextDecoder().decode(decrypted);
-    } catch (e) {
-        console.warn("❌ Decrypt failed (probably old session message)");
+    } catch {
         return null;
     }
 }
-
 
 // ===============================
 // UI
 // ===============================
 document.getElementById("sendBtn").onclick = async () => {
     if (!sharedAESKey) {
-        alert("Kalit hali tayyor emas");
+        alert("🔐 Secure connection hali tayyor emas");
         return;
     }
 
@@ -173,10 +160,9 @@ document.getElementById("sendBtn").onclick = async () => {
 
 socket.on("message", async (payload) => {
     const msg = await decryptMessage(payload);
-    if (!msg) return; // 🔥 MUHIM
+    if (!msg) return;
 
     const li = document.createElement("li");
     li.textContent = msg;
     document.getElementById("chat").appendChild(li);
 });
-
