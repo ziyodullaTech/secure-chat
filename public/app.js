@@ -1,6 +1,7 @@
 // 🔌 Socket — DOIM ENG BIRINCHI
 const socket = io();
-
+///////
+let isInitiator = false;
 // 🔐 Global crypto holatlar
 let myKeyPair = null;
 let sharedAESKey = null;
@@ -51,6 +52,12 @@ socket.on("connect", async () => {
     socket.emit("public-key", myPublicKey);
 });
 
+///// rele 
+socket.on("role", ({ initiator }) => {
+    isInitiator = initiator;
+    console.log("Role:", initiator ? "INITIATOR" : "RECEIVER");
+});
+
 
 // public key qabul qilish
 socket.on("public-key", async (keyArray) => {
@@ -62,9 +69,10 @@ socket.on("public-key", async (keyArray) => {
         ["encrypt"]
     );
 
-    if (!sharedAESKey) {
+    if (isInitiator && !sharedAESKey) {
         await createAndSendAESKey();
     }
+
 });
 
 // AES key yuborish
