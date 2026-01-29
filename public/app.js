@@ -202,20 +202,6 @@ function trySendAES() {
 }
 
 
-// set status socket is here 
-socket.on("connect", () => {
-    setStatus("🟢 Connected");
-});
-
-socket.on("disconnect", () => {
-    setStatus("🔴 Disconnected");
-    sharedAESKey = null;
-});
-
-socket.on("reconnect", () => {
-    setStatus("🟢 Reconnected");
-});
-
 
 
 
