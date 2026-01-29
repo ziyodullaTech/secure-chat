@@ -6,13 +6,6 @@ let theirPublicKey = null;
 let sharedAESKey = null;
 let roleKnown = false;
 
-
-/// connection statusu is here
-const statusEl = document.getElementById("status");
-
-function setStatus(text) {
-    statusEl.textContent = text;
-}
 //////////
 
 // ===== RSA =====
