@@ -42,9 +42,10 @@ socket.on("connect", async () => {
 // ===== ROLE =====
 socket.on("role", ({ initiator }) => {
     isInitiator = initiator;
-    roleKnown = true;
     console.log("Role:", initiator ? "INITIATOR" : "RECEIVER");
+    trySendAES(); // 🔥 MUHIM
 });
+
 
 
 // ===== PUBLIC KEY =====
@@ -59,16 +60,13 @@ socket.on("public-key", async (keyArray) => {
 
     console.log("Public key received");
 
-    if (!roleKnown) return; // 🔥 role hali yo‘q
-
     if (!isInitiator) {
         socket.emit("ready-for-aes");
     }
 
-    if (isInitiator && !sharedAESKey) {
-        await createAndSendAESKey();
-    }
+    trySendAES(); // 🔥 MUHIM
 });
+
 
 
 // ===== AES SEND =====
@@ -168,3 +166,13 @@ socket.on("message", async (payload) => {
     li.textContent = msg;
     document.getElementById("chat").appendChild(li);
 });
+
+
+
+/// again sending aes key function is here
+function trySendAES() {
+    if (isInitiator && theirPublicKey && !sharedAESKey) {
+        console.log("Initiator sending AES");
+        createAndSendAESKey();
+    }
+}
