@@ -66,6 +66,7 @@ socket.on("public-key", async (keyArray) => {
 
     // 🔥 Receiver tayyorligini bildiradi
     socket.emit("ready-for-aes");
+    
     trySendAES();
 });
 

@@ -9,7 +9,7 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 let initiatorId = null;
-let receiverReady = false;
+let receiverId = null;
 
 io.on("connection", (socket) => {
 
@@ -17,23 +17,24 @@ io.on("connection", (socket) => {
         initiatorId = socket.id;
         socket.emit("role", { initiator: true });
     } else {
+        receiverId = socket.id;
         socket.emit("role", { initiator: false });
     }
 
-    // RECEIVER tayyorligini aytadi
-    socket.on("ready-for-aes", () => {
-        receiverReady = true;
-    });
-
-    // AES faqat shunda yuboriladi
-    socket.on("aes-key", (key) => {
-        if (socket.id === initiatorId && receiverReady) {
-            socket.broadcast.emit("aes-key", key);
-        }
-    });
-
     socket.on("public-key", (key) => {
         socket.broadcast.emit("public-key", key);
+    });
+
+    // 🔥 RECEIVER tayyorligini bildiradi
+    socket.on("ready-for-aes", () => {
+        receiverId = socket.id;
+    });
+
+    // 🔐 AES faqat RECEIVER ga yuboriladi
+    socket.on("aes-key", (key) => {
+        if (socket.id === initiatorId && receiverId) {
+            io.to(receiverId).emit("aes-key", key);
+        }
     });
 
     socket.on("message", (msg) => {
@@ -41,20 +42,9 @@ io.on("connection", (socket) => {
     });
 
     socket.on("disconnect", () => {
-        if (socket.id === initiatorId) {
-            initiatorId = null;
-            receiverReady = false;
-
-            const sockets = Array.from(io.sockets.sockets.keys());
-            if (sockets.length > 0) {
-                initiatorId = sockets[0];
-                io.to(initiatorId).emit("role", { initiator: true });
-            }
-        }
+        if (socket.id === initiatorId) initiatorId = null;
+        if (socket.id === receiverId) receiverId = null;
     });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log("Server portda ishlayapti:", PORT);
-});
+server.listen(process.env.PORT || 3000);
