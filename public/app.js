@@ -203,19 +203,4 @@ function trySendAES() {
 
 
 
-
-
-// finger print is here
-async function fingerprintFromKey(keyArray) {
-    const hash = await crypto.subtle.digest(
-        "SHA-256",
-        new Uint8Array(keyArray)
-    );
-
-    const hex = Array.from(new Uint8Array(hash))
-        .slice(0, 8)
-        .map(b => b.toString(16).padStart(2, "0"))
-        .join(":");
-
-    return hex.toUpperCase();
-}
+///////////////////////////////
