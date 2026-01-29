@@ -63,9 +63,6 @@ socket.on("role", ({ initiator }) => {
 // ===== PUBLIC KEY =====
 socket.on("public-key", async (keyArray) => {
     
-    const fp = await fingerprintFromKey(keyArray);
-    console.log("Peer fingerprint:", fp);
-    alert("Peer fingerprint:\n" + fp);
 
     theirPublicKey = await crypto.subtle.importKey(
         "spki",
