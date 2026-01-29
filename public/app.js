@@ -6,6 +6,15 @@ let theirPublicKey = null;
 let sharedAESKey = null;
 let roleKnown = false;
 
+
+/// connection statusu is here
+const statusEl = document.getElementById("status");
+
+function setStatus(text) {
+    statusEl.textContent = text;
+}
+//////////
+
 // ===== RSA =====
 async function generateRSAKeyPair() {
     myKeyPair = await crypto.subtle.generateKey(
@@ -60,6 +69,11 @@ socket.on("role", ({ initiator }) => {
 
 // ===== PUBLIC KEY =====
 socket.on("public-key", async (keyArray) => {
+    
+    const fp = await fingerprintFromKey(keyArray);
+    console.log("Peer fingerprint:", fp);
+    alert("Peer fingerprint:\n" + fp);
+
     theirPublicKey = await crypto.subtle.importKey(
         "spki",
         new Uint8Array(keyArray),
@@ -185,4 +199,37 @@ function trySendAES() {
         console.log("Initiator sending AES");
         createAndSendAESKey();
     }
+}
+
+
+// set status socket is here 
+socket.on("connect", () => {
+    setStatus("🟢 Connected");
+});
+
+socket.on("disconnect", () => {
+    setStatus("🔴 Disconnected");
+    sharedAESKey = null;
+});
+
+socket.on("reconnect", () => {
+    setStatus("🟢 Reconnected");
+});
+
+
+
+
+// finger print is here
+async function fingerprintFromKey(keyArray) {
+    const hash = await crypto.subtle.digest(
+        "SHA-256",
+        new Uint8Array(keyArray)
+    );
+
+    const hex = Array.from(new Uint8Array(hash))
+        .slice(0, 8)
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join(":");
+
+    return hex.toUpperCase();
 }
