@@ -26,11 +26,15 @@ async function exportMyPublicKey() {
 
 // ===== CONNECT =====
 socket.on("connect", async () => {
+    console.log("Connected to server");
+
     sharedAESKey = null;
     theirPublicKey = null;
 
     await generateRSAKeyPair();
     const pub = await exportMyPublicKey();
+
+    console.log("Sending public key");
     socket.emit("public-key", pub);
 });
 
@@ -42,6 +46,8 @@ socket.on("role", ({ initiator }) => {
 
 // ===== PUBLIC KEY =====
 socket.on("public-key", async (keyArray) => {
+    console.log("Public key received");
+
     theirPublicKey = await crypto.subtle.importKey(
         "spki",
         new Uint8Array(keyArray),
@@ -51,18 +57,23 @@ socket.on("public-key", async (keyArray) => {
     );
 
     if (!isInitiator) {
+        console.log("Receiver ready for AES");
         socket.emit("ready-for-aes");
     }
 });
 
 // ===== AES SEND =====
 socket.on("ready-for-aes", async () => {
+    console.log("Initiator got ready signal");
+
     if (isInitiator && theirPublicKey && !sharedAESKey) {
         await createAndSendAESKey();
     }
 });
 
 async function createAndSendAESKey() {
+    console.log("Creating AES key");
+
     sharedAESKey = await crypto.subtle.generateKey(
         { name: "AES-GCM", length: 256 },
         true,
@@ -77,12 +88,14 @@ async function createAndSendAESKey() {
         raw
     );
 
+    console.log("Sending AES key");
     socket.emit("aes-key", Array.from(new Uint8Array(encrypted)));
-    console.log("AES sent");
 }
 
 // ===== AES RECEIVE =====
 socket.on("aes-key", async (encryptedKey) => {
+    console.log("AES key received");
+
     const raw = await crypto.subtle.decrypt(
         { name: "RSA-OAEP" },
         myKeyPair.privateKey,
@@ -97,10 +110,10 @@ socket.on("aes-key", async (encryptedKey) => {
         ["encrypt", "decrypt"]
     );
 
-    console.log("AES ready");
+    console.log("AES ready, secure channel established");
 });
 
-// ===== MESSAGE CRYPTO =====
+// ===== MESSAGE =====
 async function encryptMessage(text) {
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const data = await crypto.subtle.encrypt(
@@ -108,6 +121,7 @@ async function encryptMessage(text) {
         sharedAESKey,
         new TextEncoder().encode(text)
     );
+
     return { iv: Array.from(iv), data: Array.from(new Uint8Array(data)) };
 }
 
@@ -120,13 +134,13 @@ async function decryptMessage(payload) {
             sharedAESKey,
             new Uint8Array(payload.data)
         );
+
         return new TextDecoder().decode(data);
     } catch {
         return null;
     }
 }
 
-// ===== UI =====
 document.getElementById("sendBtn").onclick = async () => {
     if (!sharedAESKey) {
         alert("Secure connection hali tayyor emas");
@@ -135,6 +149,7 @@ document.getElementById("sendBtn").onclick = async () => {
 
     const input = document.getElementById("msg");
     const encrypted = await encryptMessage(input.value);
+
     socket.emit("message", encrypted);
     input.value = "";
 };
