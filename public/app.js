@@ -33,23 +33,22 @@ async function exportMyPublicKey() {
 // SOCKET EVENTS
 // ===============================
 socket.on("connect", async () => {
-    console.log("🔁 New session started");
-
-    // 🔥 PFS: eski holatni tozalaymiz
     sharedAESKey = null;
     theirPublicKey = null;
-    myKeyPair = null;
 
     await generateRSAKeyPair();
-    const myPublicKey = await exportMyPublicKey();
-    socket.emit("public-key", myPublicKey);
+    const pub = await exportMyPublicKey();
+    socket.emit("public-key", pub);
 });
+
 
 // serverdan role keladi
 socket.on("role", ({ initiator }) => {
     isInitiator = initiator;
     console.log("Role:", initiator ? "INITIATOR" : "RECEIVER");
+    trySendAES(); // 🔥 MUHIM
 });
+
 
 // public key qabul qilish
 socket.on("public-key", async (keyArray) => {
@@ -61,11 +60,10 @@ socket.on("public-key", async (keyArray) => {
         ["encrypt"]
     );
 
-    // 🔥 FAQAT INITIATOR AES yaratadi
-    if (isInitiator && !sharedAESKey) {
-        await createAndSendAESKey();
-    }
+    trySendAES(); // 🔥 MUHIM
 });
+
+
 
 // ===============================
 // AES KEY EXCHANGE
@@ -108,6 +106,15 @@ socket.on("aes-key", async (encryptedKeyArray) => {
 
     console.log("🔐 AES key ready");
 });
+////////// 
+// AES ni qayta yuborish ni kutadigan yangi funksiya
+function trySendAES() {
+    if (isInitiator && theirPublicKey && !sharedAESKey) {
+        console.log("🔐 Sending AES key");
+        createAndSendAESKey();
+    }
+}
+
 
 // ===============================
 // MESSAGE ENCRYPT / DECRYPT
