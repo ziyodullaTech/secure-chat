@@ -43,8 +43,18 @@ socket.on("connect", async () => {
 socket.on("role", ({ initiator }) => {
     isInitiator = initiator;
     console.log("Role:", initiator ? "INITIATOR" : "RECEIVER");
-    trySendAES(); // 🔥 MUHIM
+
+    // 🔥 agar initiator bo‘lib qolsak, eski AESni o‘chiramiz
+    if (isInitiator) {
+        sharedAESKey = null;
+    }
+
+    // agar public key mavjud bo‘lsa AES yuborishga urinadi
+    if (isInitiator && theirPublicKey && !sharedAESKey) {
+        createAndSendAESKey();
+    }
 });
+
 
 
 
