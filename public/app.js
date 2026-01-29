@@ -46,11 +46,7 @@ socket.on("connect", async () => {
 // ===============================
 // ROLE
 // ===============================
-socket.on("role", ({ initiator }) => {
-    isInitiator = initiator;
-    console.log("Role:", initiator ? "INITIATOR" : "RECEIVER");
-    trySendAES();
-});
+
 
 // ===============================
 // PUBLIC KEY
@@ -64,21 +60,22 @@ socket.on("public-key", async (keyArray) => {
         ["encrypt"]
     );
 
-    // 🔥 Receiver tayyorligini bildiradi
-    socket.emit("ready-for-aes");
-    
-    trySendAES();
+    if (!isInitiator) {
+        socket.emit("ready-for-aes");
+    }
+});
+
+
+// INITIATOR — faqat signal kelganda AES yuboradi
+socket.on("ready-for-aes", async () => {
+    if (isInitiator && theirPublicKey && !sharedAESKey) {
+        await createAndSendAESKey();
+    }
 });
 
 // ===============================
 // AES HANDSHAKE
 // ===============================
-function trySendAES() {
-    if (isInitiator && theirPublicKey && !sharedAESKey) {
-        createAndSendAESKey();
-    }
-}
-
 async function createAndSendAESKey() {
     sharedAESKey = await crypto.subtle.generateKey(
         { name: "AES-GCM", length: 256 },
