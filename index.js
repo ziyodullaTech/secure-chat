@@ -9,11 +9,10 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 let initiatorId = null;
+let receiverReady = false;
 
 io.on("connection", (socket) => {
-    console.log("User connected:", socket.id);
 
-    // 🔥 Role aniqlash
     if (!initiatorId) {
         initiatorId = socket.id;
         socket.emit("role", { initiator: true });
@@ -21,24 +20,35 @@ io.on("connection", (socket) => {
         socket.emit("role", { initiator: false });
     }
 
-    // ===== EVENTS =====
-    socket.on("public-key", (key) => socket.broadcast.emit("public-key", key));
-    socket.on("aes-key", (key) => socket.broadcast.emit("aes-key", key));
-    socket.on("message", (msg) => socket.broadcast.emit("message", msg));
+    // RECEIVER tayyorligini aytadi
+    socket.on("ready-for-aes", () => {
+        receiverReady = true;
+    });
+
+    // AES faqat shunda yuboriladi
+    socket.on("aes-key", (key) => {
+        if (socket.id === initiatorId && receiverReady) {
+            socket.broadcast.emit("aes-key", key);
+        }
+    });
+
+    socket.on("public-key", (key) => {
+        socket.broadcast.emit("public-key", key);
+    });
+
+    socket.on("message", (msg) => {
+        socket.broadcast.emit("message", msg);
+    });
 
     socket.on("disconnect", () => {
-        console.log("User disconnected:", socket.id);
-
-        // 🔥 Agar INITIATOR chiqib ketsa
         if (socket.id === initiatorId) {
             initiatorId = null;
+            receiverReady = false;
 
-            // 🔁 Qolganlardan bittasini INITIATOR qilamiz
             const sockets = Array.from(io.sockets.sockets.keys());
             if (sockets.length > 0) {
                 initiatorId = sockets[0];
                 io.to(initiatorId).emit("role", { initiator: true });
-                console.log("New INITIATOR:", initiatorId);
             }
         }
     });
