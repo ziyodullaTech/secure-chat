@@ -12,7 +12,9 @@ let initiatorId = null;
 let receiverId = null;
 
 io.on("connection", (socket) => {
+  console.log("Connected:", socket.id);
 
+  // ===== ROLE =====
   if (!initiatorId) {
     initiatorId = socket.id;
     socket.emit("role", { initiator: true });
@@ -21,30 +23,35 @@ io.on("connection", (socket) => {
     socket.emit("role", { initiator: false });
   }
 
+  // ===== KEY EXCHANGE =====
   socket.on("public-key", (key) => {
     socket.broadcast.emit("public-key", key);
   });
 
-  // 🔥 RECEIVER tayyorligini bildiradi
   socket.on("ready-for-aes", () => {
     receiverId = socket.id;
   });
 
-  // 🔐 AES faqat RECEIVER ga yuboriladi
   socket.on("aes-key", (key) => {
     if (socket.id === initiatorId && receiverId) {
       io.to(receiverId).emit("aes-key", key);
     }
   });
 
+  // ===== MESSAGE =====
   socket.on("message", (msg) => {
     socket.broadcast.emit("message", msg);
   });
 
+  // ===== DISCONNECT =====
   socket.on("disconnect", () => {
+    console.log("Disconnected:", socket.id);
+
     if (socket.id === initiatorId) initiatorId = null;
     if (socket.id === receiverId) receiverId = null;
   });
 });
 
-server.listen(process.env.PORT || 3000);
+server.listen(process.env.PORT || 3000, () =>
+  console.log("Server running")
+);

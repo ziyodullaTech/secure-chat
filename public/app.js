@@ -1,16 +1,11 @@
-// 🔌 Socket
 const socket = io();
 
 let isInitiator = false;
-
-// 🔐 Crypto state
 let myKeyPair = null;
 let theirPublicKey = null;
 let sharedAESKey = null;
 
-// ===============================
-// RSA
-// ===============================
+// ===== RSA =====
 async function generateRSAKeyPair() {
     myKeyPair = await crypto.subtle.generateKey(
         {
@@ -29,12 +24,8 @@ async function exportMyPublicKey() {
     return Array.from(new Uint8Array(buf));
 }
 
-// ===============================
-// CONNECT
-// ===============================
+// ===== CONNECT =====
 socket.on("connect", async () => {
-    console.log("🔁 New session");
-
     sharedAESKey = null;
     theirPublicKey = null;
 
@@ -43,14 +34,13 @@ socket.on("connect", async () => {
     socket.emit("public-key", pub);
 });
 
-// ===============================
-// ROLE
-// ===============================
+// ===== ROLE =====
+socket.on("role", ({ initiator }) => {
+    isInitiator = initiator;
+    console.log("Role:", initiator ? "INITIATOR" : "RECEIVER");
+});
 
-
-// ===============================
-// PUBLIC KEY
-// ===============================
+// ===== PUBLIC KEY =====
 socket.on("public-key", async (keyArray) => {
     theirPublicKey = await crypto.subtle.importKey(
         "spki",
@@ -65,17 +55,13 @@ socket.on("public-key", async (keyArray) => {
     }
 });
 
-
-// INITIATOR — faqat signal kelganda AES yuboradi
+// ===== AES SEND =====
 socket.on("ready-for-aes", async () => {
     if (isInitiator && theirPublicKey && !sharedAESKey) {
         await createAndSendAESKey();
     }
 });
 
-// ===============================
-// AES HANDSHAKE
-// ===============================
 async function createAndSendAESKey() {
     sharedAESKey = await crypto.subtle.generateKey(
         { name: "AES-GCM", length: 256 },
@@ -92,9 +78,10 @@ async function createAndSendAESKey() {
     );
 
     socket.emit("aes-key", Array.from(new Uint8Array(encrypted)));
-    console.log("🔐 AES key sent");
+    console.log("AES sent");
 }
 
+// ===== AES RECEIVE =====
 socket.on("aes-key", async (encryptedKey) => {
     const raw = await crypto.subtle.decrypt(
         { name: "RSA-OAEP" },
@@ -110,12 +97,10 @@ socket.on("aes-key", async (encryptedKey) => {
         ["encrypt", "decrypt"]
     );
 
-    console.log("🔐 AES key ready");
+    console.log("AES ready");
 });
 
-// ===============================
-// MESSAGE CRYPTO
-// ===============================
+// ===== MESSAGE CRYPTO =====
 async function encryptMessage(text) {
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const data = await crypto.subtle.encrypt(
@@ -128,6 +113,7 @@ async function encryptMessage(text) {
 
 async function decryptMessage(payload) {
     if (!sharedAESKey) return null;
+
     try {
         const data = await crypto.subtle.decrypt(
             { name: "AES-GCM", iv: new Uint8Array(payload.iv) },
@@ -140,14 +126,13 @@ async function decryptMessage(payload) {
     }
 }
 
-// ===============================
-// UI
-// ===============================
+// ===== UI =====
 document.getElementById("sendBtn").onclick = async () => {
     if (!sharedAESKey) {
-        alert("🔐 Secure connection hali tayyor emas");
+        alert("Secure connection hali tayyor emas");
         return;
     }
+
     const input = document.getElementById("msg");
     const encrypted = await encryptMessage(input.value);
     socket.emit("message", encrypted);
