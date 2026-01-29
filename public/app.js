@@ -4,6 +4,7 @@ let isInitiator = false;
 let myKeyPair = null;
 let theirPublicKey = null;
 let sharedAESKey = null;
+let roleKnown = false;
 
 // ===== RSA =====
 async function generateRSAKeyPair() {
@@ -41,13 +42,13 @@ socket.on("connect", async () => {
 // ===== ROLE =====
 socket.on("role", ({ initiator }) => {
     isInitiator = initiator;
+    roleKnown = true;
     console.log("Role:", initiator ? "INITIATOR" : "RECEIVER");
 });
 
+
 // ===== PUBLIC KEY =====
 socket.on("public-key", async (keyArray) => {
-    console.log("Public key received");
-
     theirPublicKey = await crypto.subtle.importKey(
         "spki",
         new Uint8Array(keyArray),
@@ -56,22 +57,27 @@ socket.on("public-key", async (keyArray) => {
         ["encrypt"]
     );
 
+    console.log("Public key received");
+
+    if (!roleKnown) return; // 🔥 role hali yo‘q
+
     if (!isInitiator) {
-        console.log("Receiver ready for AES");
         socket.emit("ready-for-aes");
     }
-});
 
-// ===== AES SEND =====
-socket.on("ready-for-aes", async () => {
-    console.log("Initiator got ready signal");
-
-    if (isInitiator && theirPublicKey && !sharedAESKey) {
+    if (isInitiator && !sharedAESKey) {
         await createAndSendAESKey();
     }
 });
 
+
+// ===== AES SEND =====
+
 async function createAndSendAESKey() {
+    if (!theirPublicKey) { 
+        console.log("No public key yet");
+        return;
+    }
     console.log("Creating AES key");
 
     sharedAESKey = await crypto.subtle.generateKey(

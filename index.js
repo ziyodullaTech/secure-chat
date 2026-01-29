@@ -25,7 +25,7 @@ io.on("connection", (socket) => {
     console.log("RECEIVER =", socket.id);
   }
 
-  // ===== PUBLIC KEY =====
+  // ===== PUBLIC KEY RELAY =====
   socket.on("public-key", (key) => {
     console.log("Public key relay");
     socket.broadcast.emit("public-key", key);
@@ -42,13 +42,15 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ===== AES =====
+  // ===== AES RELAY =====
   socket.on("aes-key", (key) => {
-    console.log("AES received from initiator");
+    console.log("AES received");
 
     if (socket.id === initiatorId && receiverId) {
       io.to(receiverId).emit("aes-key", key);
       console.log("AES forwarded to receiver");
+    } else {
+      console.log("AES dropped: no receiver");
     }
   });
 
@@ -61,8 +63,22 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("Disconnected:", socket.id);
 
-    if (socket.id === initiatorId) initiatorId = null;
-    if (socket.id === receiverId) receiverId = null;
+    // initiator chiqdi
+    if (socket.id === initiatorId) {
+      initiatorId = receiverId;
+      receiverId = null;
+
+      if (initiatorId) {
+        io.to(initiatorId).emit("role", { initiator: true });
+        console.log("Receiver promoted to INITIATOR");
+      }
+    }
+
+    // receiver chiqdi
+    if (socket.id === receiverId) {
+      receiverId = null;
+      console.log("Receiver left");
+    }
   });
 });
 
