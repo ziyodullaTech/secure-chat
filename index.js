@@ -17,13 +17,6 @@ io.on("connection", socket => {
   assignRole(socket);
   
   ////// user offline or online trigger
-  io.on("connection", (socket) => {
-    socket.broadcast.emit("user-online");
-
-    socket.on("disconnect", () => {
-      socket.broadcast.emit("user-offline");
-    });
-  });
 
   // ---------- KEY EXCHANGE ----------
   socket.on("public-key", key => {
@@ -54,21 +47,29 @@ io.on("connection", socket => {
     console.log("Disconnected:", socket.id);
     handleDisconnect(socket.id);
   });
+
+  ///// connected /////
+  socket.on("connect", () => {
+    console.log("Connected:", socket.id);
+    handleDisconnect(socket.id);
+  });
+
+
+
+  socket.on("typing", () => {
+    socket.broadcast.emit("typing");
+  });
+
+  socket.on("stop-typing", () => {
+    socket.broadcast.emit("stop-typing");
+  });
+  
 });
 //////////////////////////////////////
-socket.on("typing", () => {
-  socket.broadcast.emit("typing");
-});
 
-socket.on("stop-typing", () => {
-  socket.broadcast.emit("stop-typing");
-});
 /////////////////////////////////////////////
 
 
-socket.on("message", msg => {
-  socket.broadcast.emit("message", msg);
-});
 
 
 ////////////////////
