@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Secure Chat</title>
+
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/ui/ui.css">
+</head>
+
+<body>
+    
+<div class="fingerprint">
+    Fingerprint: <span id="fingerprint">—</span>
+</div>
+
+    <div class="chat-area">
+        <div class="chat-header">Secure Chat 🔐</div>
+    <div id="status" class="status offline">Offline</div>
+        <ul id="chat"></ul>
+        <div id="typing" style="padding:5px; color:#555;"></div>
+
+
+        <div class="chat-input">
+            <input id="msg" placeholder="Type message..." />
+            <button id="sendBtn">Send</button>
+        </div>
+    </div>
+
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script type="module" src="/app.js"></script>
+
+</body>
+
+</html>

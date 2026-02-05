@@ -1,0 +1,54 @@
+.chat-area {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.chat-header {
+    padding: 15px;
+    background: #ededed;
+}
+
+#chat {
+    flex: 1;
+    list-style: none;
+    padding: 10px;
+    overflow-y: auto;
+    background: #e5ddd5;
+}
+
+/* common bubble */
+.message {
+    padding: 8px 12px;
+    border-radius: 10px;
+    margin: 6px 0;
+    max-width: 60%;
+}
+
+/* boshqa user */
+.received {
+    background: white;
+}
+
+/* o'zingniki */
+.sent {
+    background: #dcf8c6;
+    margin-left: auto;
+}
+
+
+
+
+/*status ui css is here*/
+.status {
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.status.online {
+    color: green;
+}
+
+.status.offline {
+    color: gray;
+}
